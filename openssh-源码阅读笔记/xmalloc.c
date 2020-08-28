@@ -91,7 +91,7 @@ xstrdup(const char *str)
 
 	len = strlen(str) + 1;
 	cp = xmalloc(len);
-	strlcpy(cp, str, len);
+	strlcpy(cp, str, len);   /* (leisy)strlcpy更加安全 */
 	return cp;
 }
 

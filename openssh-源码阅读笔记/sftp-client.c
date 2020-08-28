@@ -1714,17 +1714,22 @@ do_upload(struct sftp_conn *conn, const char *local_path,
 		int len;
 
 		/*
-		 * Can't use atomicio here because it returns 0 on EOF,
+		 * Can't use atomicio here because it returns 0 on EOF,   //Question: ?????
 		 * thus losing the last block of the file.
 		 * Simulate an EOF on interrupt, allowing ACKs from the
 		 * server to drain.
+		 */
+
+		/* (leisy) 若被外部ctrl+c信号中断，interrupted被置为 1.
+		 * len随之置为0，因此客户端不在发送数据给服务端，仅仅是等待
+		 * 服务端确认此前已发送的数据，此后退出到命令输入循环中.
 		 */
 		if (interrupted || status != SSH2_FX_OK)
 			len = 0;
 		else do
 			len = read(local_fd, data, conn->transfer_buflen);
-		while ((len == -1) &&
-		    (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));
+		while ((len == -1) &&     /* 考虑到系统调用被其他信号中断 */
+		    (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));   
 
 		if (len == -1)
 			fatal("Couldn't read from \"%s\": %s", local_path,

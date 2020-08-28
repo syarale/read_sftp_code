@@ -94,9 +94,9 @@ const char *ssh_gai_strerror(int);
 
 typedef struct arglist arglist;
 struct arglist {
-	char    **list;   /* 为什么要用指向指针的指针？ */
-	u_int   num;
-	u_int   nalloc;
+	char    **list;   /* 为什么要用指向指针的指针？存储不同长度的字符串 */
+	u_int   num;      /* 列表中已有的元素个数 */
+	u_int   nalloc;   /* 该列表已分配空间(即num能达到的最大个数，接近时扩容) */
 };
 void	 addargs(arglist *, char *, ...)
 	     __attribute__((format(printf, 2, 3)));

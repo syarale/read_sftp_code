@@ -953,9 +953,11 @@ addargs(arglist *args, char *fmt, ...)
 	u_int nalloc;
 	int r;
 
+	/* 处理可变参数列表 */
 	va_start(ap, fmt);
 	r = vasprintf(&cp, fmt, ap);
 	va_end(ap);
+
 	if (r == -1)
 		fatal("addargs: argument too long");
 
@@ -963,7 +965,7 @@ addargs(arglist *args, char *fmt, ...)
 	if (args->list == NULL) {
 		nalloc = 32;
 		args->num = 0;
-	} else if (args->num+2 >= nalloc)
+	} else if (args->num+2 >= nalloc)   /* 接近已经分配的空间时扩容 */
 		nalloc *= 2;
 
 	args->list = xrecallocarray(args->list, args->nalloc, nalloc, sizeof(char *));
@@ -2255,17 +2257,38 @@ opt_match(const char **opts, const char *term)
 sshsig_t
 ssh_signal(int signum, sshsig_t handler)
 {
+	/* sigaction的数据结构如下：
+	 * struct sigaction {
+	 * 	  void (*sa_handler)(int);        //信号处理函数
+	 * 	  sigset_t sa_mask;               //执行信号处理函数时要屏蔽的信号(新增屏蔽信号)
+	 * 	  int sa_flags;                   //控制信号处理过程中的各种选项
+	 * 	  void (*sa_restorer)(void);      //不用于应用程序，仅供内部使用，用以恢复上下文，返回至断点
+	 * }
+	 */
+
 	struct sigaction sa, osa;
 
 	/* mask all other signals while in handler */
+
+	/* (leisy) 使用前清空结构体 */
 	bzero(&sa, sizeof(sa));
-	sa.sa_handler = handler;
-	sigfillset(&sa.sa_mask);
-	if (signum != SIGALRM)
-		sa.sa_flags = SA_RESTART;
+
+	sa.sa_handler = handler;  /* 设置信号处理函数 */
+	
+	/* 必须使用sigempty()和sigfillset()来初始化信号集，
+	 * 不能使用memset等，因为有可能使用位掩码之外的结构来实现信号集。
+	 * sigempty(): 初始化一个未包含任何成员的信号集
+	 * sigfillset(): 初始化一个包含所有信号（包括所有实时信号）的信号集。
+	 */ 
+	sigfillset(&sa.sa_mask);  /* 设置信号掩码 */
+
+	if (signum != SIGALRM)   
+		sa.sa_flags = SA_RESTART;   /* 设置控制信号标志 */
+	
+	/* sa 描述信号新处置的数据结构，osa返回之前信号处置的相关信息 */
 	if (sigaction(signum, &sa, &osa) == -1) {
 		debug3("sigaction(%s): %s", strsignal(signum), strerror(errno));
 		return SIG_ERR;
 	}
-	return osa.sa_handler;
+	return osa.sa_handler;   /* 返回一个指向函数的指针 */
 }
