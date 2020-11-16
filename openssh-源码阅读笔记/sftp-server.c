@@ -1711,6 +1711,8 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 
 	set_size = howmany(max + 1, NFDBITS) * sizeof(fd_mask);
 	for (;;) {
+
+		/* 每次调用select前（或调用后）应将rset和wset清零，避免干扰 */
 		memset(rset, 0, set_size);
 		memset(wset, 0, set_size);
 
